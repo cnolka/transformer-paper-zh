@@ -1,0 +1,45 @@
+本节描述我们模型的训练方案。
+
+%为了加速实验，我们的消融实验是基于第 \ref{sec:results} 节详细描述的较小基础模型进行的。
+
+\subsection{训练数据和批处理}
+我们在标准的 WMT 2014 英德数据集上进行了训练，该数据集包含约 450 万个句子对。句子使用字节对编码 \citep{DBLP:journals/corr/BritzGLL17} 进行编码，该编码拥有一个约 37000 个词符的共享源-目标词汇表。对于英法翻译，我们使用了规模大得多的 WMT 2014 英法数据集，包含 3600 万个句子，并将词符分割为 32000 个词片词汇表 \citep{wu2016google}。句子对根据近似序列长度进行批处理。每个训练批次包含一组句子对，其中约有 25000 个源词符和 25000 个目标词符。
+
+\subsection{硬件和计划}
+
+我们在一台配备 8 块 NVIDIA P100 GPU 的机器上训练我们的模型。对于我们使用全文所述超参数的基础模型，每个训练步骤耗时约 0.4 秒。我们训练基础模型总共 100,000 步（12 小时）。对于我们的大型模型（描述见表 \ref{tab:variations} 最后一行），每一步耗时 1.0 秒。大型模型训练了 300,000 步（3.5 天）。
+
+\subsection{优化器}
+我们使用了 Adam 优化器~\citep{kingma2014adam}，其中 $\beta_1=0.9$，$\beta_2=0.98$ 以及 $\epsilon=10^{-9}$。我们在训练过程中根据以下公式调整学习率：
+
+\begin{equation}
+lrate = \dmodel^{-0.5} \cdot
+  \min({step\_num}^{-0.5},
+    {step\_num} \cdot {warmup\_steps}^{-1.5})
+\end{equation}
+
+这对应于在最初的 $warmup\_steps$ 个训练步骤中线性增加学习率，之后则按步数的平方根的倒数比例减小。我们使用了 $warmup\_steps=4000$。
+
+\subsection{正则化} \label{sec:reg}
+
+我们在训练中采用了三种正则化方法：
+\paragraph{残差丢弃}
+我们将丢弃法 \citep{srivastava2014dropout} 应用于每个子层的输出，然后才将其与子层输入相加并进行归一化。此外，我们在编码器和解码器堆栈中，对词嵌入和位置编码的和也应用了丢弃法。对于基础模型，我们使用丢弃率 $P_{drop}=0.1$。
+
+% \paragraph{注意力丢弃} 查询到键的注意力在结构上类似于前馈网络中的隐藏层到隐藏层的权重，尽管是跨位置的。产生注意力权重的 softmax 激活可以看作是隐藏层激活的类比。一个自然的可能性是将丢弃法 \citep{srivastava2014dropout} 扩展到注意力上。我们通过丢弃注意力权重来实现注意力丢弃：
+% \begin{equation*}
+%   \mathrm{Attention}(Q, K, V) = \mathrm{dropout}(\mathrm{softmax}(\frac{QK^T}{\sqrt{d}}))V
+% \end{equation*}
+% 除了残差丢弃外，我们发现注意力丢弃对我们的句法分析实验有益。
+
+%\paragraph{符号丢弃} 在源和目标嵌入层中，我们用哨兵 ID 替换随机一部分词符 ID。对于基础模型，我们使用丢弃率 $symbol\_dropout\_rate=0.1$。请注意，这仅适用于目标 ID 的自回归使用——不适用于它们在交叉熵损失中的使用。
+
+%\paragraph{注意力丢弃} 查询到记忆的注意力在结构上类似于前馈网络中的隐藏层到隐藏层的权重，尽管是跨位置的。产生注意力权重的 softmax 激活可以看作是隐藏层激活的类比。一个自然的可能性是将丢弃法 \citep{srivastava2014dropout} 扩展到注意力上。我们通过丢弃注意力权重来实现注意力丢弃：
+%\begin{equation*}
+%   A(Q, K, V) = \mathrm{dropout}(\mathrm{softmax}(\frac{QK^T}{\sqrt{d}}))V
+%\end{equation*}
+%因此，查询将无法访问被丢弃位置上的记忆值。在我们的实验中，我们尝试了 0.2 和 0.3 的注意力丢弃率，并发现其对英德翻译有利。
+%$attention\_dropout\_rate=0.2$。
+
+\paragraph{标签平滑}
+在训练期间，我们采用了值为 $\epsilon_{ls}=0.1$ 的标签平滑技术 \citep{DBLP:journals/corr/SzegedyVISW15}。这会损害困惑度，因为模型学会了更加不确定，但能提高准确率和 BLEU 分数。

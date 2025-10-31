@@ -1,0 +1,154 @@
+\subsection{机器翻译}
+\begin{table}[t]
+\begin{center}
+\caption{Transformer 在英德和英法 newstest2014 测试上以更低的训练成本获得了比先前最先进模型更好的 BLEU 分数。}
+\label{tab:wmt-results}
+\vspace{-2mm}
+%\scalebox{1.0}{
+\begin{tabular}{lccccc}
+\toprule
+\multirow{2}{*}{\vspace{-2mm}模型} & \multicolumn{2}{c}{BLEU} & & \multicolumn{2}{c}{训练成本 (FLOPs)} \\
+\cmidrule{2-3} \cmidrule{5-6} 
+& 英德 & 英法 & & 英德 & 英法 \\ 
+\hline
+ByteNet \citep{NalBytenet2017} & 23.75 & & & &\\
+Deep-Att + PosUnk \citep{DBLP:journals/corr/ZhouCWLX16} & & 39.2 & & & $1.0\cdot10^{20}$ \\
+GNMT + RL \citep{wu2016google} & 24.6 & 39.92 & & $2.3\cdot10^{19}$  & $1.4\cdot10^{20}$\\
+ConvS2S \citep{JonasFaceNet2017} & 25.16 & 40.46 & & $9.6\cdot10^{18}$ & $1.5\cdot10^{20}$\\
+MoE \citep{shazeer2017outrageously} & 26.03 & 40.56 & & $2.0\cdot10^{19}$ & $1.2\cdot10^{20}$ \\
+\hline
+\rule{0pt}{2.0ex}Deep-Att + PosUnk 集成 \citep{DBLP:journals/corr/ZhouCWLX16} & & 40.4 & & &
+ $8.0\cdot10^{20}$ \\
+GNMT + RL 集成 \citep{wu2016google} & 26.30 & 41.16 & & $1.8\cdot10^{20}$  & $1.1\cdot10^{21}$\\
+ConvS2S 集成 \citep{JonasFaceNet2017} & 26.36 & \textbf{41.29} & & $7.7\cdot10^{19}$ & $1.2\cdot10^{21}$\\
+\specialrule{1pt}{-1pt}{0pt}
+\rule{0pt}{2.2ex}Transformer (基础模型) & 27.3 & 38.1 & & \multicolumn{2}{c}{\boldmath$3.3\cdot10^{18}$}\\
+Transformer (大型) & \textbf{28.4} & \textbf{41.8} & & \multicolumn{2}{c}{$2.3\cdot10^{19}$} \\
+%\hline
+%\specialrule{1pt}{-1pt}{0pt}
+%\rule{0pt}{2.0ex}
+\bottomrule
+\end{tabular}
+%}
+\end{center}
+\end{table}
+
+在 WMT 2014 英德翻译任务上，大型 Transformer 模型（表~\ref{tab:wmt-results} 中的 Transformer (大型)）以超过 $2.0$ BLEU 的优势优于先前报告的最佳模型（包括集成模型），建立了新的最先进 BLEU 分数 $28.4$。此模型的配置列于表~\ref{tab:variations} 的最后一行。训练在 $8$ 块 P100 GPU 上耗时 $3.5$ 天。即使我们的基础模型也超越了所有先前发布的模型和集成模型，且训练成本远低于任何竞争模型。
+
+在 WMT 2014 英法翻译任务上，我们的大型模型获得了 $41.0$ 的 BLEU 分数，优于所有先前发布的单一模型，且训练成本不到先前最先进模型的 $1/4$。用于英法翻译的 Transformer (大型) 模型使用的丢弃率为 $P_{drop}=0.1$，而非 $0.3$。
+
+对于基础模型，我们使用了通过对最后 $5$ 个检查点（每 $10$ 分钟保存一次）取平均得到的单一模型。对于大型模型，我们平均了最后 $20$ 个检查点。我们使用了集束大小为 $4$ 且长度惩罚 $\alpha=0.6$ 的集束搜索 \citep{wu2016google}。这些超参数是在开发集上实验后选择的。在推理过程中，我们将最大输出长度设置为输入长度加 $50$，但尽可能提前终止 \citep{wu2016google}。
+
+表 \ref{tab:wmt-results} 总结了我们的结果，并将我们的翻译质量和训练成本与文献中的其他模型架构进行了比较。我们通过将训练时间、使用的 GPU 数量以及每块 GPU 的持续单精度浮点性能估计值相乘来估计训练模型所用的浮点运算次数 \footnote{我们分别使用了 2.8、3.7、6.0 和 9.5 TFLOPS 作为 K80、K40、M40 和 P100 的估计值。}。
+
+\subsection{模型变体}
+
+\begin{table}[t]
+\caption{Transformer 架构的变体。未列出的值与基础模型相同。所有指标均在英德翻译开发集 newstest2013 上。列出的困惑度是根据我们的字节对编码计算的每词片困惑度，不应与每词困惑度直接比较。}
+\label{tab:variations}
+\begin{center}
+\vspace{-2mm}
+%\scalebox{1.0}{
+\begin{tabular}{c|ccccccccc|ccc}
+\hline\rule{0pt}{2.0ex}
+ & \multirow{2}{*}{$N$} & \multirow{2}{*}{$\dmodel$} &
+\multirow{2}{*}{$\dff$} & \multirow{2}{*}{$h$} & 
+\multirow{2}{*}{$d_k$} & \multirow{2}{*}{$d_v$} & 
+\multirow{2}{*}{$P_{drop}$} & \multirow{2}{*}{$\epsilon_{ls}$} &
+训练 & PPL & BLEU & 参数量 \\
+ & & & & & & & & & 步数 & (开发集) & (开发集) & $\times10^6$ \\
+% & & & & & & & & & & & & \\
+\hline\rule{0pt}{2.0ex}
+基础 & 6 & 512 & 2048 & 8 & 64 & 64 & 0.1 & 0.1 & 100K & 4.92 & 25.8 & 65 \\
+\hline\rule{0pt}{2.0ex}
+\multirow{4}{*}{(A)}
+& & & & 1 & 512 & 512 & & & & 5.29 & 24.9 &  \\
+& & & & 4 & 128 & 128 & & & & 5.00 & 25.5 &  \\
+& & & & 16 & 32 & 32 & & & & 4.91 & 25.8 &  \\
+& & & & 32 & 16 & 16 & & & & 5.01 & 25.4 &  \\
+\hline\rule{0pt}{2.0ex}
+\multirow{2}{*}{(B)}
+& & & & & 16 & & & & & 5.16 & 25.1 & 58 \\
+& & & & & 32 & & & & & 5.01 & 25.4 & 60 \\
+\hline\rule{0pt}{2.0ex}
+\multirow{7}{*}{(C)}
+& 2 & & & & & & & &            & 6.11 & 23.7 & 36 \\
+& 4 & & & & & & & &            & 5.19 & 25.3 & 50 \\
+& 8 & & & & & & & &            & 4.88 & 25.5 & 80 \\
+& & 256 & & & 32 & 32 & & &    & 5.75 & 24.5 & 28 \\
+& & 1024 & & & 128 & 128 & & & & 4.66 & 26.0 & 168 \\
+& & & 1024 & & & & & &         & 5.12 & 25.4 & 53 \\
+& & & 4096 & & & & & &         & 4.75 & 26.2 & 90 \\
+\hline\rule{0pt}{2.0ex}
+\multirow{4}{*}{(D)}
+& & & & & & & 0.0 & & & 5.77 & 24.6 &  \\
+& & & & & & & 0.2 & & & 4.95 & 25.5 &  \\
+& & & & & & & & 0.0 & & 4.67 & 25.3 &  \\
+& & & & & & & & 0.2 & & 5.47 & 25.7 &  \\
+\hline\rule{0pt}{2.0ex}
+(E) & & \multicolumn{7}{c}{使用可学习的位置嵌入代替正弦编码} & & 4.92 & 25.7 & \\
+\hline\rule{0pt}{2.0ex}
+大型 & 6 & 1024 & 4096 & 16 & & & 0.3 & & 300K & \textbf{4.33} & \textbf{26.4} & 213 \\
+\hline
+\end{tabular}
+%}
+\end{center}
+\end{table}
+
+为了评估 Transformer 不同组件的重要性，我们以多种方式改变基础模型，测量在英德翻译开发集 newstest2013 上性能的变化。我们使用了上一节描述的集束搜索，但没有进行检查点平均。我们在表~\ref{tab:variations} 中展示了这些结果。
+
+在表~\ref{tab:variations} 的行 (A) 中，我们改变了注意力头的数量以及注意力键和值的维度，同时保持计算量不变，如第 \ref{sec:multihead} 节所述。虽然单头注意力比最佳设置差 0.9 BLEU，但头数过多时质量也会下降。
+
+在表~\ref{tab:variations} 的行 (B) 中，我们观察到减小注意力键大小 $d_k$ 会损害模型质量。这表明确定兼容性并非易事，并且比点积更复杂的兼容性函数可能有益。我们在行 (C) 和 (D) 中进一步观察到，正如预期，更大的模型更好，并且丢弃对于避免过拟合非常有帮助。在行 (E) 中，我们用可学习的位置嵌入 \citep{JonasFaceNet2017} 替换了正弦位置编码，并观察到与基础模型几乎相同的结果。
+
+\subsection{英语成分句法分析}
+
+\begin{table}[t]
+\begin{center}
+\caption{Transformer 能够很好地泛化到英语成分句法分析（结果基于 WSJ 第 23 节）}
+\label{tab:parsing-results}
+\vspace{-2mm}
+%\scalebox{1.0}{
+\begin{tabular}{c|c|c}
+\hline
+{\bf 分析器}  & {\bf 训练数据} & {\bf WSJ 23 F1} \\ \hline
+Vinyals \& Kaiser 等 (2014) \cite{KVparse15}
+  & 仅 WSJ，判别式 & 88.3 \\
+Petrov 等 (2006) \cite{petrov-EtAl:2006:ACL}
+  & 仅 WSJ，判别式 & 90.4 \\
+Zhu 等 (2013) \cite{zhu-EtAl:2013:ACL}
+  & 仅 WSJ，判别式 & 90.4   \\
+Dyer 等 (2016) \cite{dyer-rnng:16}
+  & 仅 WSJ，判别式 & 91.7   \\
+\specialrule{1pt}{-1pt}{0pt}
+Transformer (4 层)  &  仅 WSJ，判别式 & 91.3 \\
+\specialrule{1pt}{-1pt}{0pt}   
+Zhu 等 (2013) \cite{zhu-EtAl:2013:ACL}
+  & 半监督 & 91.3 \\
+Huang \& Harper (2009) \cite{huang-harper:2009:EMNLP}
+  & 半监督 & 91.3 \\
+McClosky 等 (2006) \cite{mcclosky-etAl:2006:NAACL}
+  & 半监督 & 92.1 \\
+Vinyals \& Kaiser 等 (2014) \cite{KVparse15}
+  & 半监督 & 92.1 \\
+\specialrule{1pt}{-1pt}{0pt}
+Transformer (4 层)  & 半监督 & 92.7 \\
+\specialrule{1pt}{-1pt}{0pt}   
+Luong 等 (2015) \cite{multiseq2seq}
+  & 多任务 & 93.0   \\
+Dyer 等 (2016) \cite{dyer-rnng:16}
+  & 生成式 & 93.3   \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+为了评估 Transformer 是否能泛化到其他任务，我们在英语成分句法分析上进行了实验。此任务面临特定挑战：输出受到强大的结构约束，并且明显长于输入。此外，RNN 序列到序列模型在小数据量情况下未能获得最先进的结果 \cite{KVparse15}。
+
+我们在 Penn Treebank \citep{marcus1993building} 的华尔街日报（WSJ）部分（约 4 万训练句子）上训练了一个 4 层 Transformer，其中 $d_{model} = 1024$。我们还在半监督设置下进行了训练，使用了来自 \citep{KVparse15} 的更大的高置信度和 BerkeleyParser 语料库，约包含 1700 万句子。对于仅 WSJ 设置，我们使用了 16K 词符的词汇表；对于半监督设置，使用了 32K 词符的词汇表。
+
+我们仅进行了少量实验以在 22 节开发集上选择丢弃率（包括注意力和残差，第~\ref{sec:reg}节）、学习率和集束大小，所有其他参数与英德基础翻译模型保持一致。在推理过程中，我们将最大输出长度增加到输入长度加 $300$。对于仅 WSJ 和半监督设置，我们均使用集束大小 $21$ 和 $\alpha=0.3$。
+
+我们在表~\ref{tab:parsing-results} 中的结果表明，尽管缺乏任务特定的调优，我们的模型表现惊人地好，结果优于除循环神经网络语法 \cite{dyer-rnng:16} 之外的所有先前报告的模型。
+
+与 RNN 序列到序列模型 \citep{KVparse15} 相比，即使仅在 4 万句子的 WSJ 训练集上训练，Transformer 也优于 BerkeleyParser \cite{petrov-EtAl:2006:ACL}。

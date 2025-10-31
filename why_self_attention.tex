@@ -1,0 +1,97 @@
+%我们关注于一般任务，即将一个可变长度的符号表示序列 ${x_1, ..., x_n} \in \mathbb{R}^d$ 映射到另一个相同长度的序列 ${y_1, ..., y_n} \in \mathbb{R}^d$。\marginpar{我们应该使用这种表示法吗？或者我们可以只说“d维向量”}
+
+在本节中，我们将自注意力层的各个方面与通常用于将一个可变长度的符号表示序列 $(x_1, ..., x_n)$ 映射到另一个等长序列 $(z_1, ..., z_n)$ 的循环层和卷积层进行比较，其中 $x_i, z_i \in \mathbb{R}^d$，例如典型序列转导编码器或解码器中的隐藏层。为了说明我们使用自注意力的动机，我们考虑了三个需求。
+
+其一是每层的总计算复杂度。
+另一个是可以并行化的计算量，以所需顺序操作的最小数量来衡量。
+
+第三个是网络中长程依赖之间的路径长度。学习长程依赖是许多序列转导任务中的关键挑战。影响学习这种依赖能力的一个关键因素是前向和反向信号在网络中必须遍历的路径长度。输入和输出序列中任意位置组合之间的路径越短，学习长程依赖就越容易 \citep{hochreiter2001gradient}。因此，我们也比较了由不同层类型组成的网络中任意两个输入和输出位置之间的最大路径长度。
+
+%\subsection{计算性能和路径长度}
+
+\begin{table}[t]
+\caption{
+  不同层类型的最大路径长度、每层复杂度和顺序操作的最小数量。$n$ 是序列长度，$d$ 是表示维度，$k$ 是卷积的核大小，$r$ 是受限自注意力中邻域的大小。}
+  %注意力模型在序列长度小于通道深度时，对于跨位置通信非常高效。
+\label{tab:op_complexities}
+\begin{center}
+\vspace{-1mm}
+%\scalebox{0.75}{
+
+\begin{tabular}{lccc}
+\toprule
+层类型 & 每层复杂度 & 顺序操作 & 最大路径长度  \\
+           &             &  &   \\
+\hline
+\rule{0pt}{2.0ex}Self-Attention & $O(n^2 \cdot d)$ & $O(1)$ & $O(1)$ \\
+Recurrent & $O(n \cdot d^2)$ & $O(n)$ & $O(n)$ \\
+
+Convolutional & $O(k \cdot n \cdot d^2)$ & $O(1)$ & $O(log_k(n))$ \\
+%\cmidrule
+Self-Attention (restricted)& $O(r \cdot n \cdot d)$ & $O(1)$ & $O(n/r)$ \\
+
+%Convolutional (separable) & $O(k \cdot n \cdot d + n \cdot d^2)$ & $O(1)$ & $O(log_k(n))$ \\
+
+%Position-wise Feed-Forward & $O(n \cdot d^2)$ & $O(1)$ & $\infty$ \\
+
+%Fully Connected & $O(n^2 \cdot d^2)$ & $O(1)$ & $O(1)$ \\
+%Convolutional (separable) & $O(k \cdot n \cdot d + n \cdot d^2)$ & $O(1)$ & $O(log_k(n))$ \\
+
+%Position-wise Feed-Forward & $O(n \cdot d^2)$ & $O(1)$ & $\infty$ \\
+
+%Fully Connected & $O(n^2 \cdot d^2)$ & $O(1)$ & $O(1)$ \\
+\bottomrule
+\end{tabular}
+%}
+\end{center}
+\end{table}
+
+
+%\begin{table}[b]
+%\caption{
+%  不同层类型的最大路径长度、每层复杂度和顺序操作的最小数量。$n$ 是序列长度，$d$ 是表示维度，$k$ 是卷积的核大小，$r$ 是局部自注意力中邻域的大小。}
+  %注意力模型在序列长度小于通道深度时，对于跨位置通信非常高效。
+%\label{tab:op_complexities}
+%\begin{center}
+%\vspace{-1mm}
+%%\scalebox{0.75}{
+%
+%\begin{tabular}{lccc}
+%\hline
+%层类型 & 感受野大小 & 每层复杂度 & 顺序操作  %\\
+%           &     &            &   \\
+%\hline
+%Self-Attention & $n$ & $O(n^2 \cdot d)$ & $O(1)$ \\
+%Recurrent & $n$ & $O(n \cdot d^2)$ & $O(n)$ \\
+
+%Convolutional & $k$ & $O(k \cdot n \cdot d^2)$ & %$O(log_k(n))$ \\
+%\hline 
+%Self-Attention (localized)& $r$ & $O(r \cdot n \cdot d)$ & %$O(1)$ \\
+
+%Convolutional (separable) & $k$ & $O(k \cdot n \cdot d + n %\cdot d^2)$ & $O(log_k(n))$ \\
+
+%Position-wise Feed-Forward & $1$ & $O(n \cdot d^2)$ & $O(1)$ %\\
+
+%Fully Connected & $n$ & $O(n^2 \cdot d^2)$ & $O(1)$ \\
+
+%\end{tabular}
+%%}
+%\end{center}
+%\end{table}
+
+%层的感受野大小是可以影响任何特定输出表示的不同输入表示的数量。循环层和自注意力层具有等于序列长度 $n$ 的完整感受野。卷积层具有等于其核宽度 $k$ 的有限感受野，通常选择较小的 $k$ 以限制计算成本。
+
+如表 \ref{tab:op_complexities} 所述，自注意力层以恒定数量的顺序执行操作连接所有位置，而循环层需要 $O(n)$ 个顺序操作。
+在计算复杂度方面，当序列长度 $n$ 小于表示维度 $d$ 时，自注意力层比循环层更快，这在使用最先进的机器翻译模型中的句子表示时通常是这种情况，例如 word-piece \citep{wu2016google} 和 byte-pair \citep{sennrich2015neural} 表示。
+为了提高涉及非常长序列的任务的计算性能，自注意力可以限制为仅考虑输入序列中大小为 $r$ 的邻域，以相应输出位置为中心。这将增加最大路径长度至 $O(n/r)$。我们计划在未来的工作中进一步研究这种方法。
+
+一个核宽度 $k < n$ 的单个卷积层并不连接所有输入和输出位置对。要做到这一点，在连续核的情况下需要堆叠 $O(n/k)$ 个卷积层，或在膨胀卷积的情况下需要 $O(log_k(n))$ 个卷积层 \citep{NalBytenet2017}，从而增加网络中任意两个位置之间最长路径的长度。
+卷积层通常比循环层更昂贵，大约是 $k$ 倍。然而，可分离卷积 \citep{xception2016} 显著降低了复杂度，降至 $O(k \cdot n \cdot d + n \cdot d^2)$。但即使 $k=n$，可分离卷积的复杂度也等于自注意力层和逐点前馈层的组合，这是我们模型中采用的方法。
+
+%\subsection{未过滤的瓶颈论证}
+
+%基于层何时将用于计算给定输出位置的所有信息映射到单个固定长度向量的瓶颈，可以对自注意力层提出一个正交论证。...
+
+%对于自注意力层还有第二个论证，我们称之为未过滤瓶颈论证。在循环层和卷积层中，位置 $i$ 从其他位置接收的信息在可以被内容 $x_i$ 过滤之前，被压缩到一个维度为 $d$ 的向量。更精确地说，我们可以表示为 $y_i = F(i, x_i, G(i, \{x_{j \neq i}\}))$，其中 $G(i, \{x_{j \neq i}\})$ 是一个维度为 $d$ 的向量。直观上，我们预计这会导致大量不相关信息挤占相关信息。自注意力不会受到未过滤瓶颈问题的影响，因为聚合发生在过滤之后，因此直观上，我们有机会传输更多相关信息。
+
+作为额外好处，自注意力可以产生更可解释的模型。我们检查了模型中的注意力分布，并在附录中展示和讨论了示例。不仅各个注意力头清楚地学会了执行不同的任务，许多头还表现出与句子的句法和语义结构相关的行为。

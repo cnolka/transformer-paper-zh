@@ -1,0 +1,410 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+ \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading nips_2017
+%
+% to avoid loading the natbib package, add option nonatbib:
+% \usepackage[nonatbib]{nips_2017}
+
+% Keep final for now to remove annoying line numbers.
+%\usepackage[final]{nips_2017}
+% Keep final for now to remove annoying line numbers.
+
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+\usepackage[final]{nips_2017}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{amsmath}
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{subfiles}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{enumerate}
+\usepackage{subfiles}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{subfiles}
+\usepackage{xeCJK}
+\setCJKmainfont{SimSun}
+
+
+% % Custom Commands:
+% \newcommand\blfootnote[1]{%
+%   \begingroup
+%   \renewcommand\thefootnote{}\footnote{#1}%
+%   \addtocounter{footnote}{-1}%
+%   \endgroup
+% }
+
+\newcommand\todo[1]{\textcolor{red}{[[#1]]}}
+\newcommand\mc[1]{\mathcal{#1}}
+\newcommand*\samethanks[1][\value{footnote}]{\footnotemark[#1]}
+%keys for memory and values. Can be changed if needed
+\newcommand{\kq}{q}
+\newcommand{\km}{k}
+\newcommand{\vq}{o}
+\newcommand{\vm}{m}
+\newcommand{\Wkq}{W_q}
+\newcommand{\Wkm}{W_k}
+\newcommand{\Wvq}{W_o}
+\newcommand{\Wvm}{W_m}
+\newcommand{\dmodel}{d_{\text{model}}}
+\newcommand{\dffn}{d_{\text{ffn}}}
+\newcommand{\dff}{d_{\text{ff}}}
+\newcommand{\mbf}[1]{\mathbf{#1}}
+%\newcommand{\kq}{{q}_k}
+%\newcommand{\km}{{m}_k}
+%\newcommand{\vq}{{q}_v}
+%\newcommand{\vm}{{m}_v}
+%\newcommand{\Wkq}{{W_q}_k}
+%\newcommand{\Wkm}{{W_m}_k}
+%\newcommand{\Wvq}{{W_q}_v}
+%\newcommand{\Wvm}{{W_m}_v}
+\newcommand\concat[3]{\left[#1 \parallel_#3 #2\right]}
+
+\title{Attention Is All You Need}
+
+% The \author macro works with any number of authors. There are two
+% commands used to separate the names and addresses of multiple
+% authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to
+% break the lines. Using \AND forces a line break at that point. So,
+% if LaTeX puts 3 of 4 authors names on the first line, and the last
+% on the second line, try using \AND instead of \And before the third
+% author name.
+\author{
+  \AND
+  Ashish Vaswani\thanks{贡献相等。作者列表顺序随机。Jakob 提出用自注意力机制替换 RNN 并开始评估这一想法。
+Ashish 与 Illia 设计并实现了第一个 Transformer 模型，并参与了这项工作的各个方面。Noam 提出了缩放点积注意力、多头注意力以及无参数的位置表示，并成为几乎参与每个细节的另一位成员。Niki 在我们原始的代码库和 tensor2tensor 中设计、实现、调整和评估了无数模型变体。Llion 也尝试了新颖的模型变体，负责我们最初的代码库、高效推理和可视化。Lukasz 和 Aidan 花费了无数个漫长的日子设计各个部分并实现 tensor2tensor，取代了我们早期的代码库，极大地改善了结果并加速了我们的研究。
+}\\
+  Google Brain\\
+  \texttt{avaswani@google.com}\\
+  \And
+  Noam Shazeer\footnotemark[1]\\
+  Google Brain\\
+  \texttt{noam@google.com}\\
+  \And
+  Niki Parmar\footnotemark[1]\\
+  Google Research\\
+  \texttt{nikip@google.com}\\
+  \And
+  Jakob Uszkoreit\footnotemark[1]\\
+  Google Research\\
+  \texttt{usz@google.com}\\
+  \And
+  Llion Jones\footnotemark[1]\\
+  Google Research\\
+  \texttt{llion@google.com}\\
+  \And
+  Aidan N. Gomez\footnotemark[1] \hspace{1.7mm}\thanks{工作完成于 Google Brain 期间。}\\
+  University of Toronto\\
+  \texttt{aidan@cs.toronto.edu}
+  \And
+  {\L}ukasz Kaiser\footnotemark[1]\\
+  Google Brain\\
+  \texttt{lukaszkaiser@google.com}\\
+  \And
+  Illia Polosukhin\footnotemark[1]\hspace{1.7mm} \thanks{工作完成于 Google Research 期间。}\\
+  \texttt{illia.polosukhin@gmail.com}\\
+}
+
+\begin{document}
+\begin{center}
+    \color{red}
+    \large 在提供适当署名的前提下，Google 特此授予仅为新闻或学术作品复制本文中表格和图形的许可。
+\end{center}
+
+\maketitle
+
+\begin{abstract}
+主流的序列转导模型基于包含编码器和解码器的复杂循环或卷积神经网络。性能最佳的模型还通过注意力机制连接编码器和解码器。我们提出了一种新的简单网络架构——Transformer，它完全基于注意力机制，完全摒弃了循环和卷积。在两个机器翻译任务上的实验表明，这些模型在质量上更优，同时更具可并行性，并且需要的训练时间显著减少。我们的模型在 WMT 2014 英语-德语翻译任务上取得了 28.4 的 BLEU 分数，比现有最佳结果（包括集成模型）提高了超过 2 个 BLEU 分数。在 WMT 2014 英语-法语翻译任务上，我们的模型在 8 个 GPU 上训练 3.5 天后，建立了新的单模型最先进 BLEU 分数 41.8，这仅是文献中最佳模型训练成本的一小部分。我们通过将 Transformer 成功应用于英语成分句法分析（无论训练数据量大小），表明其能很好地推广到其他任务。
+% \blfootnote{代码可在 \url{链接} 获取}
+
+%TODO(noam): update results for new models.
+
+%llion@: FAIR's paper seems to concentrate solely on the convolutional aspect of their model and have the attention as an after thought almost, this gives us a good opportunity to differentiate ourselves from their paper.
+
+%We are simpler in a number of ways and should have the simplicity as a big selling point:
+%\begin{itemize}
+%\item No convolutions
+%\item No need for such careful initializations and %normalization.
+%\item Simpler non-lineararities, they use the gated linear %units.
+%\item Less layers?
+%\end{itemize}
+%One thing we do more is that we have self attention.
+%Another selling point is the increased interpretability as %shown with the visualizations. Which comes from the %simplicity and use of only attentions.
+\end{abstract}
+
+\section{引言}
+
+\input{introduction}
+
+\section{背景}
+
+\input{background}
+
+\section{模型架构}
+\input{model_architecture}
+
+\section{为何使用自注意力}
+\input{why_self_attention}
+
+\section{训练}
+\input{training}
+
+\section{结果} \label{sec:results}
+\input{results}
+
+\section{结论}
+在这项工作中，我们提出了 Transformer，这是第一个完全基于注意力机制的序列转导模型，它用多头自注意力取代了编码器-解码器架构中最常用的循环层。
+
+对于翻译任务，Transformer 的训练速度明显快于基于循环层或卷积层的架构。在 WMT 2014 英语-德语和 WMT 2014 英语-法语翻译任务上，我们都达到了新的最先进水平。在前一个任务中，我们最好的模型甚至超过了所有先前报道的集成模型。%我们还通过英语成分句法分析的实验表明了我们的模型具有更广泛的适用性。
+
+我们对基于注意力模型的未来感到兴奋，并计划将其应用于其他任务。我们计划将 Transformer 扩展到处理文本以外的输入和输出模态的问题，并研究局部的、受限的注意力机制，以有效处理图像、音频和视频等大型输入和输出。
+减少生成的顺序性是我们的另一个研究目标。
+
+我们用于训练和评估模型的代码可在 \url{链接} 获取。
+
+\paragraph{致谢} 我们感谢 Nal Kalchbrenner 和 Stephan Gouws 富有成效的评论、修正和启发。
+
+\bibliographystyle{plain}
+%\bibliography{deeplearn}
+\begin{thebibliography}{10}
+
+\bibitem{layernorm2016}
+Jimmy~Lei Ba, Jamie~Ryan Kiros, and Geoffrey~E Hinton.
+\newblock 层归一化.
+\newblock {\em arXiv preprint arXiv:1607.06450}, 2016.
+
+\bibitem{bahdanau2014neural}
+Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio.
+\newblock 通过联合学习对齐和翻译的神经机器翻译.
+\newblock {\em CoRR}, abs/1409.0473, 2014.
+
+\bibitem{DBLP:journals/corr/BritzGLL17}
+Denny Britz, Anna Goldie, Minh{-}Thang Luong, and Quoc~V. Le.
+\newblock 神经机器翻译架构的大规模探索.
+\newblock {\em CoRR}, abs/1703.03906, 2017.
+
+\bibitem{cheng2016long}
+Jianpeng Cheng, Li~Dong, and Mirella Lapata.
+\newblock 用于机器阅读的长短期记忆网络.
+\newblock {\em arXiv preprint arXiv:1601.06733}, 2016.
+
+\bibitem{cho2014learning}
+Kyunghyun Cho, Bart van Merrienboer, Caglar Gulcehre, Fethi Bougares, Holger
+  Schwenk, and Yoshua Bengio.
+\newblock 使用 RNN 编码器-解码器学习统计机器翻译的短语表示.
+\newblock {\em CoRR}, abs/1406.1078, 2014.
+
+\bibitem{xception2016}
+Francois Chollet.
+\newblock Xception: 使用深度可分离卷积进行深度学习.
+\newblock {\em arXiv preprint arXiv:1610.02357}, 2016.
+
+\bibitem{gruEval14}
+Junyoung Chung, {\c{C}}aglar G{\"{u}}l{\c{c}}ehre, Kyunghyun Cho, and Yoshua
+  Bengio.
+\newblock 门控循环神经网络在序列建模上的实证评估.
+\newblock {\em CoRR}, abs/1412.3555, 2014.
+
+\bibitem{dyer-rnng:16}
+Chris Dyer, Adhiguna Kuncoro, Miguel Ballesteros, and Noah~A. Smith.
+\newblock 循环神经网络语法.
+\newblock In {\em Proc. of NAACL}, 2016.
+
+\bibitem{JonasFaceNet2017}
+Jonas Gehring, Michael Auli, David Grangier, Denis Yarats, and Yann~N. Dauphin.
+\newblock 卷积序列到序列学习.
+\newblock {\em arXiv preprint arXiv:1705.03122v2}, 2017.
+
+\bibitem{graves2013generating}
+Alex Graves.
+\newblock 用循环神经网络生成序列.
+\newblock {\em arXiv preprint arXiv:1308.0850}, 2013.
+
+\bibitem{he2016deep}
+Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+\newblock 图像识别的深度残差学习.
+\newblock In {\em Proceedings of the IEEE Conference on Computer Vision and
+  Pattern Recognition}, pages 770--778, 2016.
+
+\bibitem{hochreiter2001gradient}
+Sepp Hochreiter, Yoshua Bengio, Paolo Frasconi, and J{\"u}rgen Schmidhuber.
+\newblock 循环网络中的梯度流：学习长期依赖性的困难, 2001.
+
+\bibitem{hochreiter1997}
+Sepp Hochreiter and J{\"u}rgen Schmidhuber.
+\newblock 长短期记忆.
+\newblock {\em Neural computation}, 9(8):1735--1780, 1997.
+
+\bibitem{huang-harper:2009:EMNLP}
+Zhongqiang Huang and Mary Harper.
+\newblock 跨语言使用潜在注释自训练 PCFG 语法.
+\newblock In {\em Proceedings of the 2009 Conference on Empirical Methods in
+  Natural Language Processing}, pages 832--841. ACL, August 2009.
+
+\bibitem{jozefowicz2016exploring}
+Rafal Jozefowicz, Oriol Vinyals, Mike Schuster, Noam Shazeer, and Yonghui Wu.
+\newblock 探索语言建模的极限.
+\newblock {\em arXiv preprint arXiv:1602.02410}, 2016.
+
+\bibitem{extendedngpu}
+{\L}ukasz Kaiser and Samy Bengio.
+\newblock 主动记忆能取代注意力吗？
+\newblock In {\em Advances in Neural Information Processing Systems, ({NIPS})},
+  2016.
+
+\bibitem{neural_gpu}
+\L{}ukasz Kaiser and Ilya Sutskever.
+\newblock 神经 GPU 学习算法.
+\newblock In {\em International Conference on Learning Representations
+  ({ICLR})}, 2016.
+
+\bibitem{NalBytenet2017}
+Nal Kalchbrenner, Lasse Espeholt, Karen Simonyan, Aaron van~den Oord, Alex
+  Graves, and Koray Kavukcuoglu.
+\newblock 线性时间的神经机器翻译.
+\newblock {\em arXiv preprint arXiv:1610.10099v2}, 2017.
+
+\bibitem{structuredAttentionNetworks}
+Yoon Kim, Carl Denton, Luong Hoang, and Alexander~M. Rush.
+\newblock 结构化注意力网络.
+\newblock In {\em International Conference on Learning Representations}, 2017.
+
+\bibitem{kingma2014adam}
+Diederik Kingma and Jimmy Ba.
+\newblock Adam: 一种随机优化方法.
+\newblock In {\em ICLR}, 2015.
+
+\bibitem{Kuchaiev2017Factorization}
+Oleksii Kuchaiev and Boris Ginsburg.
+\newblock LSTM 网络的分解技巧.
+\newblock {\em arXiv preprint arXiv:1703.10722}, 2017.
+
+\bibitem{lin2017structured}
+Zhouhan Lin, Minwei Feng, Cicero Nogueira~dos Santos, Mo~Yu, Bing Xiang, Bowen
+  Zhou, and Yoshua Bengio.
+\newblock 一种结构化的自注意力句子嵌入.
+\newblock {\em arXiv preprint arXiv:1703.03130}, 2017.
+
+\bibitem{multiseq2seq}
+Minh-Thang Luong, Quoc~V. Le, Ilya Sutskever, Oriol Vinyals, and Lukasz Kaiser.
+\newblock 多任务序列到序列学习.
+\newblock {\em arXiv preprint arXiv:1511.06114}, 2015.
+
+\bibitem{luong2015effective}
+Minh-Thang Luong, Hieu Pham, and Christopher~D Manning.
+\newblock 基于注意力的神经机器翻译的有效方法.
+\newblock {\em arXiv preprint arXiv:1508.04025}, 2015.
+
+\bibitem{marcus1993building}
+Mitchell~P Marcus, Mary~Ann Marcinkiewicz, and Beatrice Santorini.
+\newblock 构建一个大型的英语标注语料库：宾州树库.
+\newblock {\em Computational linguistics}, 19(2):313--330, 1993.
+
+\bibitem{mcclosky-etAl:2006:NAACL}
+David McClosky, Eugene Charniak, and Mark Johnson.
+\newblock 有效的句法分析自训练.
+\newblock In {\em Proceedings of the Human Language Technology Conference of
+  the NAACL, Main Conference}, pages 152--159. ACL, June 2006.
+
+\bibitem{decomposableAttnModel}
+Ankur Parikh, Oscar Täckström, Dipanjan Das, and Jakob Uszkoreit.
+\newblock 可分解注意力模型.
+\newblock In {\em Empirical Methods in Natural Language Processing}, 2016.
+
+\bibitem{paulus2017deep}
+Romain Paulus, Caiming Xiong, and Richard Socher.
+\newblock 一种用于抽象摘要的深度强化模型.
+\newblock {\em arXiv preprint arXiv:1705.04304}, 2017.
+
+\bibitem{petrov-EtAl:2006:ACL}
+Slav Petrov, Leon Barrett, Romain Thibaux, and Dan Klein.
+\newblock 学习准确、紧凑和可解释的树标注.
+\newblock In {\em Proceedings of the 21st International Conference on
+  Computational Linguistics and 44th Annual Meeting of the ACL}, pages
+  433--440. ACL, July 2006.
+
+\bibitem{press2016using}
+Ofir Press and Lior Wolf.
+\newblock 使用输出嵌入改进语言模型.
+\newblock {\em arXiv preprint arXiv:1608.05859}, 2016.
+
+\bibitem{sennrich2015neural}
+Rico Sennrich, Barry Haddow, and Alexandra Birch.
+\newblock 使用子词单元进行稀有词的神经机器翻译.
+\newblock {\em arXiv preprint arXiv:1508.07909}, 2015.
+
+\bibitem{shazeer2017outrageously}
+Noam Shazeer, Azalia Mirhoseini, Krzysztof Maziarz, Andy Davis, Quoc Le,
+  Geoffrey Hinton, and Jeff Dean.
+\newblock 极其庞大的神经网络：稀疏门控的混合专家层.
+\newblock {\em arXiv preprint arXiv:1701.06538}, 2017.
+
+\bibitem{srivastava2014dropout}
+Nitish Srivastava, Geoffrey~E Hinton, Alex Krizhevsky, Ilya Sutskever, and
+  Ruslan Salakhutdinov.
+\newblock Dropout: 一种防止神经网络过拟合的简单方法.
+\newblock {\em Journal of Machine Learning Research}, 15(1):1929--1958, 2014.
+
+\bibitem{sukhbaatar2015}
+Sainbayar Sukhbaatar, Arthur Szlam, Jason Weston, and Rob Fergus.
+\newblock 端到端记忆网络.
+\newblock In C.~Cortes, N.~D. Lawrence, D.~D. Lee, M.~Sugiyama, and R.~Garnett,
+  editors, {\em Advances in Neural Information Processing Systems 28}, pages
+  2440--2448. Curran Associates, Inc., 2015.
+
+\bibitem{sutskever14}
+Ilya Sutskever, Oriol Vinyals, and Quoc~VV Le.
+\newblock 使用神经网络进行序列到序列学习.
+\newblock In {\em Advances in Neural Information Processing Systems}, pages
+  3104--3112, 2014.
+
+\bibitem{DBLP:journals/corr/SzegedyVISW15}
+Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jonathon Shlens, and
+  Zbigniew Wojna.
+\newblock 重新思考计算机视觉的 Inception 架构.
+\newblock {\em CoRR}, abs/1512.00567, 2015.
+
+\bibitem{KVparse15}
+{Vinyals {\&} Kaiser}, Koo, Petrov, Sutskever, and Hinton.
+\newblock 语法作为外语.
+\newblock In {\em Advances in Neural Information Processing Systems}, 2015.
+
+\bibitem{wu2016google}
+Yonghui Wu, Mike Schuster, Zhifeng Chen, Quoc~V Le, Mohammad Norouzi, Wolfgang
+  Macherey, Maxim Krikun, Yuan Cao, Qin Gao, Klaus Macherey, et~al.
+\newblock 谷歌的神经机器翻译系统：弥合人类与机器翻译的鸿沟.
+\newblock {\em arXiv preprint arXiv:1609.08144}, 2016.
+
+\bibitem{DBLP:journals/corr/ZhouCWLX16}
+Jie Zhou, Ying Cao, Xuguang Wang, Peng Li, and Wei Xu.
+\newblock 具有快进连接的深度循环模型用于神经机器翻译.
+\newblock {\em CoRR}, abs/1606.04199, 2016.
+
+\bibitem{zhu-EtAl:2013:ACL}
+Muhua Zhu, Yue Zhang, Wenliang Chen, Min Zhang, and Jingbo Zhu.
+\newblock 快速准确的移进-归约成分句法分析.
+\newblock In {\em Proceedings of the 51st Annual Meeting of the ACL (Volume 1:
+  Long Papers)}, pages 434--443. ACL, August 2013.
+
+\end{thebibliography}
+%\newpage
+\input{visualizations}
+%\appendix
+%\newpage
+%\input{parameter_attention}
+
+%\input{sqrt_d_trick}
+
+\end{document}

@@ -1,0 +1,19 @@
+循环神经网络，尤其是长短期记忆网络\citep{hochreiter1997}和门控循环单元网络\citep{gruEval14}，已被牢固确立为序列建模和转换问题（如语言建模和机器翻译）中最先进的方法\citep{sutskever14, bahdanau2014neural, cho2014learning}。此后，许多努力不断推动循环语言模型和编码器-解码器架构的边界\citep{wu2016google,luong2015effective,jozefowicz2016exploring}。
+
+循环模型通常沿着输入和输出序列的符号位置分解计算。将位置与计算时间步骤对齐，它们生成一系列隐藏状态$h_t$，作为前一个隐藏状态$h_{t-1}$和位置$t$的输入的函数。这种固有的顺序性质阻止了训练示例内的并行化，这在序列长度较长时变得关键，因为内存限制限制了示例间的批处理。
+
+%\marginpar{不确定这里的内存限制是否易于理解}
+近期工作通过分解技巧\citep{Kuchaiev2017Factorization}和条件计算\citep{shazeer2017outrageously}实现了计算效率的显著提升，同时在后者的情况下还提高了模型性能。然而，顺序计算的基本约束仍然存在。
+
+%\marginpar{@all: 有工作分析注意力在seq2seq模型中的实际作用，但一时找不到}
+
+注意力机制已成为各种任务中引人注目的序列建模和转换模型不可或缺的组成部分，允许对依赖关系进行建模而无视其在输入或输出序列中的距离\citep{bahdanau2014neural, structuredAttentionNetworks}。但在除少数情况外\citep{decomposableAttnModel}，此类注意力机制与循环网络结合使用。
+
+%\marginpar{不确定"跨位置通信"是否无需解释即可理解}
+%\marginpar{插入达到SOTA最早模型的精确训练时间和统计，或许甚至是单GPU模型？}
+
+在这项工作中，我们提出了Transformer，一种避免循环并完全依赖注意力机制来绘制输入和输出之间全局依赖关系的模型架构。Transformer允许显著更多的并行化，并且在八个P100 GPU上训练仅十二小时后即可达到翻译质量的新 state of the art。
+%\marginpar{你移除了恒定重复次数部分。我写它是为了明确模型不仅执行一次注意力，同时也不是循环的。我认为尽早传达这一点可能很重要。}
+
+% 只是一个带引用的标准段落，重写。
+%在\citep{sutskever14}、\citep{bahdanau2014neural}和\citep{cho2014learning}的开创性论文之后，循环模型已成为序列建模和序列到序列转换的主导解决方案。许多努力如\citep{wu2016google,luong2015effective,jozefowicz2016exploring}利用循环序列模型推动了机器翻译和语言建模的边界。最近的工作\citep{shazeer2017outrageously}将条件计算的力量与序列模型结合，训练了用于机器翻译的非常大型的模型，以较低计算成本推高了SOTA。循环模型为每个计算时间步骤t计算隐藏状态向量h_t。h_t是时间t的输入和前一隐藏状态h_t的函数。这种对前一隐藏状态的依赖使循环模型难以同时处理多个输入，其时间复杂性是输入和输出长度的线性函数，无论是在训练还是推理期间。[我想在这里说的是，尽管在解码时这没问题，但在训练时，我们同时有输入和输出，这种线性性质不允许RNN同时处理所有输入和输出，并且尚未用于网络规模的数据集。我们拥有的最大数据集是什么？谈论Nvidia和其他公司加速工作的努力，以及其他缓解此问题但仍受其计算性质限制的努力]。引言其余部分：如果你能基于实际输入和输出构建状态，那么你就可以一次性构建它们。这已成为许多近期有希望的努力的基础，如bytenet、facenet（也在这里讨论quasi rnn）。现在我们讨论注意力！！与细胞架构如长短期记忆（LSTM）\citep{hochreiter1997}和门控循环单元（GRUs）\citep{cho2014learning}一起，注意力已成为成功序列模型中的重要组成部分，尤其是在机器翻译中。近年来，机器翻译中许多（如果不是全部）state-of-the-art（SOTA）结果都是通过基于注意力的序列模型实现的\citep{wu2016google,luong2015effective,jozefowicz2016exploring}。谈论neon工作中如何通过自注意力玩转注意力！然后谈论我们的工作。

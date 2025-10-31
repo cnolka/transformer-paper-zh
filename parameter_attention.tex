@@ -1,0 +1,43 @@
+\pagebreak
+\section*{两个前馈层 = 参数注意力}\label{sec:parameter_attention}
+
+除了注意力层之外，我们的模型还包含逐位置前馈网络（第 \ref{sec:ffn} 节），该网络由两个线性变换组成，中间有一个 ReLU 激活函数。事实上，这些网络也可以被视为一种注意力形式。比较此类网络的公式与简单点积注意力层的公式（偏置和缩放因子已省略）：
+
+\begin{align*}
+    FFN(x, W_1, W_2) = ReLU(xW_1)W_2 \\
+    A(q, K, V) = Softmax(qK^T)V
+\end{align*}
+
+基于这些公式的相似性，两层前馈网络可以看作是一种注意力，其中键和值是可训练参数矩阵 $W_1$ 和 $W_2$ 的行，并且我们在兼容性函数中使用 ReLU 代替 Softmax。
+
+%兼容性函数是 $compat(q, k_i) = ReLU(q \cdot k_i)$ 而不是 $Softmax(qK^T)_i$。
+
+基于这种相似性，我们尝试用注意力层替换逐位置前馈网络，这些注意力层类似于我们模型中其他地方使用的层。多头参数注意力子层与 \ref{sec:multihead} 节中描述的多头注意力相同，不同之处在于每个注意力头的“键”和“值”输入是可训练模型参数，而不是前一层的线性投影。这些参数按比例放大 $\sqrt{d_{model}}$ 倍，以更类似于激活值。
+
+在第一个实验中，我们将每个逐位置前馈网络替换为一个多头参数注意力子层，该子层有 $h_p=8$ 个头，键维度 $d_{pk}=64$，值维度 $d_{pv}=64$，每个注意力头使用 $n_p=1536$ 个键值对。该子层总共有 $2097152$ 个参数，包括查询投影和输出投影中的参数。这与我们替换的逐位置前馈网络中的参数数量匹配。虽然理论计算量也相同，但在实践中，注意力版本导致步长时间增加了约 $30\%$。
+
+在第二个实验中，我们使用 $h_p=8$ 个头，每个注意力头有 $n_p=512$ 个键值对，再次匹配基础模型中的参数总数。第一个实验的结果略差于基础模型，第二个实验的结果略好于基础模型，参见表~\ref{tab:parameter_attention}。
+
+\begin{table}[h]
+\caption{用多头参数注意力替换逐位置前馈网络产生了与基础模型相似的结果。所有指标均在英德翻译开发集 newstest2013 上。}
+\label{tab:parameter_attention}
+\begin{center}
+\vspace{-2mm}
+%\scalebox{1.0}{
+\begin{tabular}{c|cccccc|cccc}
+\hline\rule{0pt}{2.0ex}
+ & \multirow{2}{*}{$\dmodel$} & \multirow{2}{*}{$\dff$} &
+\multirow{2}{*}{$h_p$} & \multirow{2}{*}{$d_{pk}$} & \multirow{2}{*}{$d_{pv}$} &
+ \multirow{2}{*}{$n_p$} &
+ PPL & BLEU & params & training\\
+ & & & & & &  & (dev) & (dev) & $\times10^6$ & time \\
+\hline\rule{0pt}{2.0ex}
+base & 512 & 2048 & & & & & 4.92 & 25.8 & 65 & 12 hours\\
+\hline\rule{0pt}{2.0ex}
+AOP$_1$ & 512 & & 8 & 64 & 64 & 1536 & 4.92& 25.5  & 65 & 16 hours\\
+AOP$_2$ & 512 & & 16 & 64 & 64 & 512 & \textbf{4.86} & \textbf{25.9}  & 65 & 16 hours \\
+\hline
+\end{tabular}
+%}
+\end{center}
+\end{table}
